@@ -43,22 +43,32 @@ class ApiService {
     }
   }
 
-  String _friendlyMessage(DioException error) {
-    switch (error.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return 'Koneksi ke server melewati batas waktu.';
-      case DioExceptionType.connectionError:
-        return 'Tidak dapat terhubung ke server. Periksa koneksi internet.';
-      case DioExceptionType.badResponse:
-        return 'Server mengembalikan error (HTTP ${error.response?.statusCode ?? 'unknown'}).';
-      case DioExceptionType.cancel:
-        return 'Permintaan dibatalkan.';
-      case DioExceptionType.badCertificate:
-        return 'Sertifikat koneksi server tidak valid.';
-      case DioExceptionType.unknown:
-        return error.message ?? 'Gagal mengambil data pengguna.';
-    }
+ String _friendlyMessage(DioException e) {
+  final status = e.response?.statusCode;
+  final serverError = e.response?.data is Map
+      ? (e.response?.data as Map)['error']?.toString()
+      : null;
+
+  if (status == 401) {
+    return '401 Unauthorized${serverError != null ? ': $serverError' : ''}. '
+        'ReqRes wajib header x-api-key. Periksa ApiService._apiKey.';
   }
+  if (status == 403) {
+    return '403 Forbidden${serverError != null ? ': $serverError' : ''}. '
+        'API key ditolak / limit habis.';
+  }
+  if (status != null && status >= 500) {
+    return 'Server error ($status). Coba lagi nanti.';
+  }
+  switch (e.type) {
+    case DioExceptionType.connectionTimeout:
+    case DioExceptionType.sendTimeout:
+    case DioExceptionType.receiveTimeout:
+      return 'Timeout: server tidak merespons. Periksa koneksi internet.';
+    case DioExceptionType.connectionError:
+      return 'Tidak ada koneksi internet / server tidak terjangkau.';
+    default:
+      return serverError ?? e.message ?? 'Gagal mengambil data dari server';
+  }
+}
 }
